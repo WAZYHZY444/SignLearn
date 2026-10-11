@@ -8,7 +8,7 @@ import torch.nn as nn
 import random
 
 
-# 模型定义
+# 模型的定义
 class HandMLP(nn.Module):
     def __init__(self, num_classes=30):
         super().__init__()
