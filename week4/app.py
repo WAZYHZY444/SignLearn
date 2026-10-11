@@ -1,7 +1,6 @@
 import gradio as gr
 import json
 import os
-import cv2
 import mediapipe as mp
 import numpy as np
 import torch
@@ -9,7 +8,7 @@ import torch.nn as nn
 import random
 
 
-# ==================== 模型定义 ====================
+# 模型定义
 class HandMLP(nn.Module):
     def __init__(self, num_classes=30):
         super().__init__()
@@ -31,24 +30,26 @@ CLASSES = ['a', 'b', 'c', 'ch', 'd', 'e', 'f', 'g', 'h', 'i',
            'j', 'k', 'l', 'm', 'n', 'ng', 'o', 'p', 'q', 'r',
            's', 'sh', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'zh']
 
-# ==================== 加载模型 ====================
+# 加载模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = HandMLP(num_classes=len(CLASSES)).to(device)
+# 从本地路径加载训练好的权重
 model.load_state_dict(torch.load("E:/SignMelody/week3/backup/hand_mlp_v2.pth", map_location=device))
+# 切换到推理模式
 model.eval()
 
-# ==================== 加载描述 ====================
+# 加载描述，每个字母对应的·动作文字描述
 with open("E:/SignMelody/assets/descriptions.json", "r", encoding="utf-8") as f:
     DESCRIPTIONS = json.load(f)
 
 ASSETS_DIR = "E:/SignMelody/assets/signs"
 
-# ==================== MediaPipe ====================
+# MediaPipe
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.5)
 
 
-# ==================== 核心函数 ====================
+# 核心函数
 def predict_from_image(image):
     """输入一张图片，输出预测字母和置信度"""
     if image is None:
@@ -90,10 +91,11 @@ def predict_from_image(image):
     extra = np.array([dist_8_12, diff_x, diff_y, angle, dist_4_0, dist_4_8, dist_4_5])
     landmarks = np.concatenate([landmarks, extra])
 
+    # 转成张量输入模型
     x = torch.tensor(landmarks, dtype=torch.float32).unsqueeze(0).to(device)
     with torch.no_grad():
         out = model(x)
-        prob = torch.softmax(out, dim=1)
+        prob = torch.softmax(out, dim=1)  # 归一化为概率
         pred_idx = out.argmax(1).item()
         pred_letter = CLASSES[pred_idx]
         confidence = prob[0][pred_idx].item()
@@ -120,6 +122,7 @@ def split_pinyin(pinyin):
     result = []
     i = 0
     while i < len(pinyin):
+        # 优先匹配双字母组合
         if i + 1 < len(pinyin) and pinyin[i:i+2] in ["zh", "ch", "sh", "ng"]:
             result.append(pinyin[i:i+2])
             i += 2
@@ -129,9 +132,9 @@ def split_pinyin(pinyin):
     return result
 
 
-# ==================== Gradio 界面 ====================
-with gr.Blocks(title="SignMelody 汉语手指字母学习器") as demo:
-    gr.Markdown("# SignMelody 汉语手指字母学习器")
+# Gradio 界面
+with gr.Blocks(title="汉语手指字母学习器") as demo:
+    gr.Markdown("#汉语手指字母学习器")
     gr.Markdown("输入拼音，系统逐字母展示标准指式，你跟着学，摄像头拍摄判定对错。")
 
     with gr.Tabs():
@@ -153,6 +156,7 @@ with gr.Blocks(title="SignMelody 汉语手指字母学习器") as demo:
                 sign_img = gr.Image(label="标准指式", width=300)
                 sign_desc = gr.Textbox(label="动作说明", lines=5)
 
+            #拆解拼音：展示首字母的图片与描述
             def on_split(pinyin):
                 letters = split_pinyin(pinyin)
                 if not letters:
@@ -166,6 +170,7 @@ with gr.Blocks(title="SignMelody 汉语手指字母学习器") as demo:
                 outputs=[split_result, letters_state, current_idx, sign_img, sign_desc]
             )
 
+            # 上一个
             def on_prev(letters, idx):
                 if not letters:
                     return idx, None, "请先输入拼音"
@@ -179,6 +184,7 @@ with gr.Blocks(title="SignMelody 汉语手指字母学习器") as demo:
                 outputs=[current_idx, sign_img, sign_desc]
             )
 
+            # 下一个
             def on_next(letters, idx):
                 if not letters:
                     return idx, None, "请先输入拼音"
