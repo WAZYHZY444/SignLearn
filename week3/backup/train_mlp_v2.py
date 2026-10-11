@@ -6,6 +6,7 @@ import numpy as np
 from dataset_v2 import HandDataset
 import random
 
+# 随机种子（实验可复现）
 def set_seed(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -14,14 +15,14 @@ def set_seed(seed=42):
 
 set_seed(42)
 
-# ==================== 超参数 ====================
+# 超参数（训练前，手动设定的参数）
 BATCH_SIZE = 64
 LR = 0.001
 EPOCHS = 100
 DATA_DIR = "E:/SignMelody/data/my_hand"
 SAVE_PATH = "E:/SignMelody/week3/backup/hand_mlp_v2.pth"
 
-# ==================== 数据 ====================
+# 数据划分
 dataset = HandDataset(DATA_DIR)
 print(f"总样本数: {len(dataset)}, 类别数: {len(dataset.classes)}")
 print(f"类别: {dataset.classes}")
@@ -33,7 +34,7 @@ train_data, val_data = Data.random_split(dataset, [train_size, val_size])
 train_loader = Data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = Data.DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=False)
 
-# ==================== 模型 ====================
+# 3层MLP
 class HandMLP(nn.Module):
     def __init__(self, num_classes=30):
         super().__init__()
@@ -58,7 +59,7 @@ model = HandMLP(num_classes=len(dataset.classes)).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 criterion = nn.CrossEntropyLoss()
 
-# ==================== 训练 ====================
+# 训练
 train_loss_all, val_loss_all = [], []
 train_acc_all, val_acc_all = [], []
 best_acc = 0.0
@@ -101,6 +102,7 @@ for epoch in range(EPOCHS):
           f"Val Loss: {val_loss_all[-1]:.4f} | "
           f"Val Acc: {val_acc_all[-1]:.4f}")
 
+    # 防止最后一个epoch过拟合导致模型变差
     if val_acc_all[-1] > best_acc:
         best_acc = val_acc_all[-1]
         torch.save(model.state_dict(), SAVE_PATH)
@@ -108,7 +110,7 @@ for epoch in range(EPOCHS):
 print(f"\n最佳验证准确率: {best_acc:.4f}")
 print(f"模型已保存到: {SAVE_PATH}")
 
-# ==================== 画曲线 ====================
+# 画曲线
 plt.figure(figsize=(12, 4))
 plt.subplot(1, 2, 1)
 plt.plot(train_loss_all, 'ro-', label="train loss")
